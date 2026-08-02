@@ -23,12 +23,16 @@ export function middleware(request: NextRequest) {
   "/callback",
 
   "/about",
+  "/news",
   "/service-provider",
   "/service-providers",
   "/resources",
   "/resources/reports",
   "/services",
   "/training/application-workflow",
+
+  // Public kiosk feedback form — no login required at the service window.
+  "/feedback",
 ];
 
   const isServiceDetail = /^\/services\/\d+$/.test(pathname);

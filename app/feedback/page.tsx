@@ -1,12 +1,9 @@
 "use client";
-import api from "@/lib/api";
-import Image from "next/image";
-import mesob from "../mesob.jpg";
-import { useState, useEffect } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import "./feedback.css";
 import {
     Dialog,
     DialogContent,
@@ -16,6 +13,13 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+import {
     Form,
     FormControl,
     FormField,
@@ -23,31 +27,30 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
     useWindows,
     useWindowServices,
     useCreateFeedback,
 } from "@/hooks/use-feedback";
 import type { FeedbackPayload } from "@/types/feedback";
-import Swal from "sweetalert2";
+import { toast } from "sonner";
 import {
     Loader2,
     Heart,
     ChevronRight,
-    Building,
+    Building2,
     Star,
     Users,
     CheckCircle2,
     ArrowLeft,
+    Smile,
+    Meh,
+    Frown,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /* ==========================================================
 | Validation Schema
@@ -60,11 +63,6 @@ const feedbackSchema = z.object({
     service_id: z.number({
         required_error: "Please select a service.",
     }),
-    overall_rating: z.number().min(1).max(5),
-    staff_behavior: z.number().min(1).max(5),
-    waiting_time: z.number().min(1).max(5),
-    service_quality: z.number().min(1).max(5),
-    cleanliness: z.number().min(1).max(5),
     satisfaction: z.enum(["highly_satisfied", "satisfied", "not_satisfied"]),
     comment: z.string().optional(),
     gender: z.enum(["male", "female"]).optional(),
@@ -73,39 +71,39 @@ const feedbackSchema = z.object({
 type FeedbackFormValues = z.infer<typeof feedbackSchema>;
 
 /* ==========================================================
-| Star Rating Field
+| Helpers
 ========================================================== */
 
-interface StarRatingProps {
-    label: string;
-    value: number;
-    onChange: (value: number) => void;
+// Normalizes API responses that may come back either as a bare
+// array or wrapped as { data: [...] }
+function normalizeList<T = any>(input: unknown): T[] {
+    if (Array.isArray(input)) return input as T[];
+    if (
+        input &&
+        typeof input === "object" &&
+        Array.isArray((input as { data?: unknown }).data)
+    ) {
+        return (input as { data: T[] }).data;
+    }
+    return [];
 }
 
-function StarRating({ label, value, onChange }: StarRatingProps) {
-    return (
-        <div className="rating-group">
-            <div className="rating-label">
-                <span>{label}</span>
-                <span className="rating-value">{value} / 5</span>
-            </div>
-            <div className="star-row">
-                {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                        type="button"
-                        key={n}
-                        className={`star-btn ${n <= value ? "filled" : ""}`}
-                        onClick={() => onChange(n)}
-                    >
-                        <Star
-                            className="w-7 h-7"
-                            fill={n <= value ? "currentColor" : "none"}
-                        />
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
+// Sorts by an assigned "level" (falls back to "order", then id)
+// so windows/services always render in the sequence staff assigned.
+function sortByLevel<T extends { level?: number; order?: number; id?: number }>(
+    items: T[]
+): T[] {
+    return [...items].sort((a, b) => {
+        const av = a.level ?? a.order ?? a.id ?? 0;
+        const bv = b.level ?? b.order ?? b.id ?? 0;
+        return av - bv;
+    });
+}
+
+function getServiceCount(window: any, fallback: number): number {
+    if (typeof window?.services_count === "number") return window.services_count;
+    if (Array.isArray(window?.services)) return window.services.length;
+    return fallback;
 }
 
 /* ==========================================================
@@ -135,6 +133,8 @@ function ServicePopup({
     const [showFeedbackForm, setShowFeedbackForm] = useState(false);
     const [selectedServiceName, setSelectedServiceName] = useState("");
 
+    const orderedServices = useMemo(() => sortByLevel(services), [services]);
+
     const handleServiceClick = (serviceId: number, serviceName: string) => {
         setSelectedService(serviceId);
         setSelectedServiceName(serviceName);
@@ -162,70 +162,74 @@ function ServicePopup({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="kiosk-dialog max-w-2xl">
-                <div className="kiosk-dialog-inner">
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-white p-0 border-0 shadow-2xl">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 px-6 py-5 rounded-t-lg">
                     <DialogHeader>
-                        <DialogTitle className="kiosk-dialog-title">
-                            <Building className="w-7 h-7" style={{ color: "var(--primary)" }} />
+                        <DialogTitle className="text-2xl font-bold text-white flex items-center gap-2">
+                            <Building2 className="w-6 h-6" />
                             {windowName || window?.name || "Service Window"}
                         </DialogTitle>
-                        <DialogDescription className="kiosk-dialog-desc">
-                            Please select a service from the list below
+                        <DialogDescription className="text-blue-100">
+                            Choose the service you received today
                         </DialogDescription>
-                        <span className="card-badge" style={{ display: "inline-block", marginTop: 14, width: "fit-content" }}>
-                            {services.length} services
-                        </span>
+                        <Badge className="mt-1 w-fit bg-white/15 text-white border border-white/30 hover:bg-white/15">
+                            {orderedServices.length} service{orderedServices.length === 1 ? "" : "s"}
+                        </Badge>
                     </DialogHeader>
-
-                    <div style={{ marginTop: 26 }}>
-                        {isLoading ? (
-                            <div className="kiosk-loading">
-                                <Loader2 className="w-8 h-8 kiosk-spin" />
-                                <span>Loading services...</span>
-                            </div>
-                        ) : services.length === 0 ? (
-                            <div className="kiosk-empty">
-                                No services available for this window
-                            </div>
-                        ) : (
-                            <div className="service-list">
-                                {services.map((service: any, index: number) => (
-                                    <div
-                                        key={service.id || index}
-                                        className="service-row"
-                                        onClick={() =>
-                                            handleServiceClick(
-                                                service.id || index,
-                                                service.name || `Service ${index + 1}`
-                                            )
-                                        }
-                                    >
-                                        <div className="service-row-left">
-                                            <div className="service-index">{index + 1}</div>
-                                            <div>
-                                                <p className="service-name">
-                                                    {service.name || `Service ${index + 1}`}
-                                                </p>
-                                                {service.description && (
-                                                    <p className="service-desc">
-                                                        {service.description}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <ChevronRight className="w-5 h-5" style={{ color: "rgba(61,53,41,.4)" }} />
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <DialogFooter className="kiosk-btn-row">
-                        <button className="kiosk-btn kiosk-btn-outline" onClick={onClose}>
-                            Cancel
-                        </button>
-                    </DialogFooter>
                 </div>
+
+                <div className="p-6">
+                    {isLoading ? (
+                        <div className="flex justify-center items-center py-12">
+                            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                            <span className="ml-2 text-slate-600">Loading services...</span>
+                        </div>
+                    ) : orderedServices.length === 0 ? (
+                        <div className="text-center py-12 text-slate-500">
+                            No services available for this window
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {orderedServices.map((service: any, index: number) => (
+                                <button
+                                    key={service.id ?? index}
+                                    type="button"
+                                    onClick={() =>
+                                        handleServiceClick(
+                                            service.id ?? index,
+                                            service.name || `Service ${index + 1}`
+                                        )
+                                    }
+                                    className="group text-left rounded-xl border-2 border-slate-200 overflow-hidden hover:border-blue-500 hover:shadow-lg transition-all duration-200 bg-white"
+                                >
+                                    <div className="p-4 flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-slate-800 text-sm truncate">
+                                                {service.name || `Service ${index + 1}`}
+                                            </p>
+                                            {service.description && (
+                                                <p className="text-xs text-slate-500 truncate">
+                                                    {service.description}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-blue-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter className="px-6 pb-6">
+                    <Button
+                        variant="outline"
+                        onClick={onClose}
+                        className="w-full border-slate-300 text-slate-700 hover:bg-slate-50"
+                    >
+                        Cancel
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -245,6 +249,32 @@ interface FeedbackFormModalProps {
     onBack: () => void;
 }
 
+const SATISFACTION_OPTIONS = [
+    {
+        value: "highly_satisfied" as const,
+        label: "Highly Satisfied",
+        icon: Smile,
+        activeClass: "bg-emerald-600 border-emerald-600 text-white",
+    },
+    {
+        value: "satisfied" as const,
+        label: "Satisfied",
+        icon: Meh,
+        activeClass: "bg-amber-500 border-amber-500 text-white",
+    },
+    {
+        value: "not_satisfied" as const,
+        label: "Not Satisfied",
+        icon: Frown,
+        activeClass: "bg-rose-600 border-rose-600 text-white",
+    },
+];
+
+const GENDER_OPTIONS = [
+    { value: "male" as const, label: "Male", emoji: "👨" },
+    { value: "female" as const, label: "Female", emoji: "👩" },
+];
+
 function FeedbackFormModal({
                                isOpen,
                                onClose,
@@ -261,11 +291,6 @@ function FeedbackFormModal({
         defaultValues: {
             window_id: windowId,
             service_id: serviceId,
-            overall_rating: 5,
-            staff_behavior: 5,
-            waiting_time: 5,
-            service_quality: 5,
-            cleanliness: 5,
             satisfaction: "highly_satisfied",
             comment: "",
             gender: undefined,
@@ -277,32 +302,25 @@ function FeedbackFormModal({
         form.setValue("service_id", serviceId);
     }, [windowId, serviceId, form]);
 
+    const satisfactionToRating: Record<
+        FeedbackFormValues["satisfaction"],
+        number
+    > = {
+        highly_satisfied: 5,
+        satisfied: 3,
+        not_satisfied: 1,
+    };
+
     const onSubmit = async (values: FeedbackFormValues) => {
         try {
-            const { window_id, ...payload } = values;
-            await createFeedback.mutateAsync(payload as FeedbackPayload);
-            Swal.fire({
-                icon: "success",
-                title: "Thank you!",
-                text: "Your feedback has been submitted successfully 🎉",
-                confirmButtonText: "Done",
-                background: "rgba(250, 249, 245, 0.97)",
-                color: "#3D3929",
-                confirmButtonColor: "#C96442",
-                backdrop: "rgba(61, 53, 41, 0.35)",
-                customClass: {
-                    popup: "kiosk-swal-popup",
-                    confirmButton: "kiosk-swal-confirm",
-                },
-            });
+            await createFeedback.mutateAsync({
+                ...values,
+                overall_rating: satisfactionToRating[values.satisfaction],
+            } as FeedbackPayload);
+            toast.success("Thank you for your feedback! 🎉");
             form.reset({
                 window_id: undefined,
                 service_id: undefined,
-                overall_rating: 5,
-                staff_behavior: 5,
-                waiting_time: 5,
-                service_quality: 5,
-                cleanliness: 5,
                 satisfaction: "highly_satisfied",
                 comment: "",
                 gender: undefined,
@@ -313,190 +331,166 @@ function FeedbackFormModal({
                 error?.response?.data?.message ||
                 error.message ||
                 "Failed to submit feedback";
-            Swal.fire({
-                icon: "error",
-                title: "Something went wrong",
-                text: message,
-                confirmButtonText: "Try Again",
-                background: "rgba(250, 249, 245, 0.97)",
-                color: "#3D3929",
-                confirmButtonColor: "#c0392b",
-                backdrop: "rgba(61, 53, 41, 0.35)",
-                customClass: {
-                    popup: "kiosk-swal-popup",
-                    confirmButton: "kiosk-swal-confirm",
-                },
-            });
+            toast.error(message);
         }
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="kiosk-dialog max-w-2xl">
-                <div className="kiosk-dialog-inner">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white border-0 shadow-2xl p-0">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 px-6 py-5 rounded-t-lg">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onBack}
+                        type="button"
+                        className="text-blue-100 hover:text-white hover:bg-white/10 -ml-2 mb-1"
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-1" />
+                        Back
+                    </Button>
                     <DialogHeader>
-                        <button type="button" className="kiosk-back-btn" onClick={onBack}>
-                            <ArrowLeft className="w-4 h-4" />
-                            Back
-                        </button>
-                        <DialogTitle className="kiosk-dialog-title" style={{ marginTop: 18 }}>
-                            <Star className="w-7 h-7" style={{ color: "#D4A24C" }} fill="currentColor" />
+                        <DialogTitle className="text-2xl font-bold text-white flex items-center gap-2">
+                            <Star className="w-6 h-6 fill-white" />
                             Customer Feedback Form
                         </DialogTitle>
-                        <DialogDescription className="kiosk-dialog-desc">
-                            <strong>{windowName}</strong> &mdash; <strong>{serviceName}</strong>
+                        <DialogDescription className="text-blue-100">
+                            <span className="font-semibold text-white">{windowName}</span> —{" "}
+                            <span className="font-semibold text-white">{serviceName}</span>
                         </DialogDescription>
                     </DialogHeader>
-
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)}>
-                            {/* Rating Section */}
-
-
-                            <hr className="kiosk-divider"/>
-
-                            {/* Satisfaction as priority-style option cards */}
-                            <div>
-                                <label className="kiosk-field-label">Overall Satisfaction</label>
-
-                                <FormField
-                                    control={form.control}
-                                    name="satisfaction"
-                                    render={({field}) => (
-                                        <div className="priority-options">
-                                            {[
-                                                {
-                                                    value: "highly_satisfied",
-                                                    label: "Highly Satisfied",
-                                                    color: "#16a34a", // Green
-                                                },
-                                                {
-                                                    value: "satisfied",
-                                                    label: "Satisfied",
-                                                    color: "#eab308", // Yellow
-                                                },
-                                                {
-                                                    value: "not_satisfied",
-                                                    label: "Not Satisfied",
-                                                    color: "#dc2626", // Red
-                                                },
-                                            ].map((opt) => (
-                                                <div
-                                                    key={opt.value}
-                                                    className="priority-option"
-                                                    onClick={() => field.onChange(opt.value)}
-                                                    style={{
-                                                        backgroundColor: opt.color,
-                                                        color: "#fff",
-                                                        border:
-                                                            field.value === opt.value
-                                                                ? "3px solid #1e3a8a"
-                                                                : "2px solid transparent",
-                                                        transform:
-                                                            field.value === opt.value
-                                                                ? "scale(1.03)"
-                                                                : "scale(1)",
-                                                        transition: "all .3s ease",
-                                                        cursor: "pointer",
-                                                    }}
-                                                >
-                                                    <div className="priority-label">
-                                                        {opt.label}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                />
-                            </div>
-
-                            <hr className="kiosk-divider"/>
-
-                            {/* Gender */}
-                            <div className="kiosk-form-grid">
-                                <FormField
-                                    control={form.control}
-                                    name="gender"
-                                    render={({field}) => (
-                                        <FormItem>
-                                            <FormLabel className="kiosk-field-label">Gender</FormLabel>
-                                            <Select
-                                                value={field.value ?? ""}
-                                                onValueChange={(value) => field.onChange(value || undefined)}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger className="kiosk-select-trigger">
-                                                        <SelectValue placeholder="Select"/>
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent className="kiosk-select-content">
-                                                    <SelectItem value="male" className="kiosk-select-item">
-                                                        👨 Male
-                                                    </SelectItem>
-                                                    <SelectItem value="female" className="kiosk-select-item">
-                                                        👩 Female
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage className="kiosk-error"/>
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-
-                            <div style={{marginTop: 22}}>
-                                <FormField
-                                    control={form.control}
-                                    name="comment"
-                                    render={({field}) => (
-                                        <FormItem>
-                                            <FormLabel className="kiosk-field-label">
-                                                Additional Comments
-                                            </FormLabel>
-                                            <FormControl>
-                                                <Textarea
-                                                    rows={4}
-                                                    placeholder="Share your experience in detail..."
-                                                    {...field}
-                                                    value={field.value ?? ""}
-                                                    className="kiosk-textarea"
-                                                />
-                                            </FormControl>
-                                            <FormMessage className="kiosk-error"/>
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-
-                            <div className="kiosk-btn-row">
-                                <button
-                                    type="button"
-                                    className="kiosk-btn kiosk-btn-outline"
-                                    onClick={onClose}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    className="kiosk-btn kiosk-btn-primary"
-                                    type="submit"
-                                    disabled={createFeedback.isPending}
-                                >
-                                    {createFeedback.isPending ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 kiosk-spin"/>
-                                            Submitting...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Heart className="w-4 h-4"/>
-                                            Submit Feedback
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </Form>
                 </div>
+
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6">
+                        {/* Satisfaction — button group */}
+                        <FormField
+                            control={form.control}
+                            name="satisfaction"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-slate-700 font-medium">
+                                        Overall, how satisfied were you?
+                                    </FormLabel>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
+                                        {SATISFACTION_OPTIONS.map((opt) => {
+                                            const Icon = opt.icon;
+                                            const isActive = field.value === opt.value;
+                                            return (
+                                                <button
+                                                    key={opt.value}
+                                                    type="button"
+                                                    onClick={() => field.onChange(opt.value)}
+                                                    className={cn(
+                                                        "flex items-center justify-center gap-2 rounded-lg border-2 px-3 py-2.5 text-sm font-medium transition-all",
+                                                        isActive
+                                                            ? opt.activeClass
+                                                            : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    <Icon className="w-4 h-4" />
+                                                    {opt.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <FormMessage className="text-red-500" />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Gender — button group */}
+                        <FormField
+                            control={form.control}
+                            name="gender"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-slate-700 font-medium">
+                                        Gender <span className="text-slate-400 font-normal">(optional)</span>
+                                    </FormLabel>
+                                    <div className="flex gap-2 mt-1">
+                                        {GENDER_OPTIONS.map((opt) => {
+                                            const isActive = field.value === opt.value;
+                                            return (
+                                                <button
+                                                    key={opt.value}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        field.onChange(
+                                                            isActive ? undefined : opt.value
+                                                        )
+                                                    }
+                                                    className={cn(
+                                                        "flex-1 flex items-center justify-center gap-2 rounded-lg border-2 px-3 py-2.5 text-sm font-medium transition-all",
+                                                        isActive
+                                                            ? "bg-blue-600 border-blue-600 text-white"
+                                                            : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    <span>{opt.emoji}</span>
+                                                    {opt.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <FormMessage className="text-red-500" />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Comment */}
+                        <FormField
+                            control={form.control}
+                            name="comment"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-slate-700 font-medium">
+                                        Additional Comments
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Textarea
+                                            rows={4}
+                                            placeholder="Share your experience in detail..."
+                                            {...field}
+                                            value={field.value ?? ""}
+                                            className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                                        />
+                                    </FormControl>
+                                    <FormMessage className="text-red-500" />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Submit */}
+                        <div className="flex gap-3 pt-1">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onClose}
+                                className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-50"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                                type="submit"
+                                disabled={createFeedback.isPending}
+                            >
+                                {createFeedback.isPending ? (
+                                    <span className="flex items-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Submitting...
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-2">
+                                        <Heart className="w-4 h-4" />
+                                        Submit Feedback
+                                    </span>
+                                )}
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
             </DialogContent>
         </Dialog>
     );
@@ -512,18 +506,17 @@ export default function FeedbackPage() {
     const [showServicePopup, setShowServicePopup] = useState(false);
     const [selectedServiceId, setSelectedServiceId] = useState<number>();
 
-
     /* Load Windows */
-    const {
-        data: windows = [],
-        isLoading: windowsLoading,
-    } = useWindows();
+    const { data: windowsData, isLoading: windowsLoading } = useWindows();
+    const windows = useMemo(
+        () => sortByLevel(normalizeList(windowsData)),
+        [windowsData]
+    );
 
-    /* Load Services */
-    const {
-        data: services = [],
-        isLoading: servicesLoading,
-    } = useWindowServices(windowId);
+    /* Load Services for the currently opened window */
+    const { data: servicesData, isLoading: servicesLoading } =
+        useWindowServices(windowId);
+    const services = normalizeList(servicesData);
 
     /* Handle Window Click */
     const handleWindowClick = (window: any) => {
@@ -546,104 +539,110 @@ export default function FeedbackPage() {
     };
 
     return (
-        <div className="container">
-            {/* Floating background accents */}
-            <div className="bg-circle" style={{width: 220, height: 220, top: "20%", left: "8%"}}/>
-            <div className="bg-circle" style={{width: 160, height: 160, bottom: "15%", right: "10%"}}/>
-
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800">
             {/* Header */}
-            <div className="header">
-                <div className="header-decoration">
-                    <span className="decoration-circle" />
-                    <span className="decoration-circle" />
-                    <span className="decoration-circle" />
-                </div>
-                <div className="logo-container">
-                    <div className="logo-glow" />
-                    <div className="logo">
-                        <Image
-                            src={mesob}
-                            alt="Adama MESOB"
-                            width={200}
-                            height={200}
-                            className="w-full h-full rounded-full object-cover"
-                        />
+            <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 py-10 px-4 shadow-md">
+                <div className="container mx-auto max-w-6xl">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/15 p-3 rounded-full border border-white/30">
+                            <Building2 className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight text-white">
+                                Adama City Customer Satisfaction Survey
+                            </h1>
+                            <p className="text-blue-100 mt-1">
+                                Your feedback helps us improve our services
+                            </p>
+                        </div>
                     </div>
                 </div>
-                <h1 className="title">Adama City Customer Satisfaction Survey</h1>
-                <p className="subtitle">Your feedback helps us improve our services</p>
             </div>
 
-            {/* Service Windows Grid */}
-            <div className="section">
-                <div className="section-title" style={{ justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
-                        <i><Building className="w-6 h-6" /></i>
-                        Select a Service Window
+            <div className="container mx-auto max-w-6xl py-8 px-4">
+                {/* Service Windows Grid */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-blue-600" />
+                            Select a Service Window
+                        </h2>
+                        <Badge className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-50">
+                            {windows.length} window{windows.length === 1 ? "" : "s"}
+                        </Badge>
                     </div>
-                    <span className="card-badge">{windows.length} windows</span>
+
+                    {windowsLoading ? (
+                        <div className="flex justify-center items-center py-12">
+                            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                            <span className="ml-2 text-slate-600">Loading windows...</span>
+                        </div>
+                    ) : windows.length === 0 ? (
+                        <div className="text-center py-12 text-slate-500">
+                            No service windows are available right now.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {windows.map((win: any) => {
+                                const isOpenWindow = windowId === win.id;
+                                const count = getServiceCount(
+                                    win,
+                                    isOpenWindow ? services.length : win.services_count ?? 0
+                                );
+                                return (
+                                    <Card
+                                        key={win.id}
+                                        className="group cursor-pointer overflow-hidden border-2 border-slate-200 bg-white transition-all duration-200 hover:-translate-y-1 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10"
+                                        onClick={() => handleWindowClick(win)}
+                                    >
+                                        <div className="h-1.5 w-full bg-gradient-to-r from-blue-500 to-indigo-500 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300" />
+                                        <CardHeader className="pb-2">
+                                            <div className="flex items-center justify-between">
+                                                <CardTitle className="text-base font-semibold text-slate-800">
+                                                    {win.name || `Window ${win.id}`}
+                                                </CardTitle>
+                                                <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-700 font-semibold text-sm border border-blue-100">
+                                                    {win.level ?? win.order ?? win.id}
+                                                </div>
+                                            </div>
+                                            <CardDescription className="text-xs text-slate-500 flex items-center gap-1">
+                                                <Users className="w-3 h-3" />
+                                                {isOpenWindow && servicesLoading
+                                                    ? "Loading..."
+                                                    : `${count} service${count === 1 ? "" : "s"} available`}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="pt-0">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-slate-400">
+                                                    Click to view services
+                                                </span>
+                                                <ChevronRight className="w-4 h-4 text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
-                {windowsLoading ? (
-                    <div className="kiosk-loading">
-                        <Loader2 className="w-8 h-8 kiosk-spin" />
-                        <span>Loading windows...</span>
-                    </div>
-                ) : (
-                    <div className="cards-container">
-                        {windows.map((window: any) => (
-                            <div
-                                key={window.id}
-                                className="card"
-                                onClick={() => handleWindowClick(window)}
-                            >
-                                <div className="card-header">
-                                    <div className="card-icon">
-                                        <Building className="w-8 h-8" />
-                                    </div>
-                                    <span className="card-badge">
-                                        <Users className="w-3 h-3" style={{ display: "inline", marginRight: 6 }} />
-                                        {servicesLoading && windowId === window.id
-                                            ? "..."
-                                            : services.length || 0}
-                                    </span>
-                                </div>
-                                <div className="card-title">
-                                    {window.name || `Foddaa ${window.id}`}
-                                </div>
-                                <div className="card-subtitle">
-                                    {servicesLoading && windowId === window.id
-                                        ? "Loading services..."
-                                        : `${services.length || 0} services available`}
-                                </div>
-                                <div className="card-footer">
-                                    <button className="card-link">
-                                        View services
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                    <CheckCircle2 className="w-5 h-5" style={{ color: "rgba(61,53,41,.25)" }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                {/* Service Selection Popup */}
+                <ServicePopup
+                    isOpen={showServicePopup}
+                    onClose={handleClosePopup}
+                    window={selectedWindow}
+                    windowName={selectedWindow?.name}
+                    services={services}
+                    onSelectService={handleServiceSelect}
+                    isLoading={servicesLoading}
+                />
+
+                {/* Footer */}
+                <p className="text-center text-sm text-slate-400 mt-8">
+                    Your feedback helps us improve our services. Thank you for your time!
+                </p>
             </div>
-
-            {/* Service Selection Popup */}
-            <ServicePopup
-                isOpen={showServicePopup}
-                onClose={handleClosePopup}
-                window={selectedWindow}
-                windowName={selectedWindow?.name}
-                services={services}
-                onSelectService={handleServiceSelect}
-                isLoading={servicesLoading}
-            />
-
-            {/* Footer */}
-            <p className="kiosk-footnote">
-                Your feedback helps us improve our services. Thank you for your time!
-            </p>
         </div>
     );
 }

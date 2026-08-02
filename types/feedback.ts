@@ -1,6 +1,5 @@
 // src/types/feedback.ts
 
-
 /* ============================================================
  * Enums
  * ============================================================ */
@@ -10,210 +9,119 @@ export type Satisfaction =
     | "satisfied"
     | "not_satisfied";
 
-
 export type Gender =
     | "male"
-    | "female"
-    | "";
-
-
+    | "female";
 
 /* ============================================================
  * Window
  * ============================================================ */
 
 export interface Window {
-
-    id:number;
-
-    name:string;
-
+    id: number;
+    name: string;
+    city_id?: number | null;
+    subcity_id?: number | null;
+    woreda_id?: number | null;
 }
 
+export interface LocationRef {
+    id: number;
+    name: string;
+}
 
+export interface FeedbackWindow {
+    id: number;
+    name: string;
+}
 
 /* ============================================================
  * Service
  * ============================================================ */
 
 export interface Service {
-
-    id:number;
-
-    name:string;
-
-    description?:string;
-
+    id: number;
+    name: string;
+    description?: string;
 }
-
-
-
-/* ============================================================
- * Location
- * ============================================================ */
-
-export interface LocationRef {
-
-    id:number;
-
-    name:string;
-
-}
-
-
-export interface FeedbackLocation {
-
-    city:LocationRef | null;
-
-    subcity:LocationRef | null;
-
-    woreda:LocationRef | null;
-
-}
-
-
-
-export interface SubmittedBy {
-
-    id:number;
-
-    name:string;
-
-}
-
-
 
 /* ============================================================
  * Feedback
  * ============================================================ */
 
 export interface Feedback {
+    id: number;
 
+    service_id: number;
 
-    id:number;
+    service?: Service;
 
+    window_id?: number | null;
 
-    service_id:number;
+    window?: FeedbackWindow | null;
 
+    city?: LocationRef | null;
 
-    service?:Service;
+    subcity?: LocationRef | null;
 
+    woreda?: LocationRef | null;
 
+    overall_rating: number;
 
-    location?:FeedbackLocation;
+    staff_behavior: number | null;
 
+    waiting_time: number | null;
 
+    service_quality: number | null;
 
-    submitted_by?:SubmittedBy | null;
+    cleanliness: number | null;
 
+    satisfaction: Satisfaction;
 
+    comment: string | null;
 
-    overall_rating:number;
+    gender: Gender | null;
 
+    age: number | null;
 
-    staff_behavior:number | null;
+    ip_address?: string | null;
 
+    user_agent?: string | null;
 
-    waiting_time:number | null;
+    device?: string | null;
 
+    created_at: string;
 
-    service_quality:number | null;
-
-
-    cleanliness:number | null;
-
-
-
-    satisfaction:Satisfaction;
-
-
-
-    comment:string | null;
-
-
-
-    gender?:Exclude<Gender, "">;
-
-
-
-    age:number | null;
-
-
-
-    ip_address?:string | null;
-
-
-    user_agent?:string | null;
-
-
-    device?:string | null;
-
-
-
-    created_at:string;
-
-
-    updated_at:string;
-
-
+    updated_at: string;
 }
 
-
-
 /* ============================================================
- * Create Feedback Payload
+ * Create Feedback
  * ============================================================ */
 
 export interface FeedbackPayload {
+    service_id: number;
 
+    window_id?: number;
 
-    service_id:number;
+    overall_rating: number;
 
+    staff_behavior?: number;
 
+    waiting_time?: number;
 
-    overall_rating:number;
+    service_quality?: number;
 
+    cleanliness?: number;
 
+    satisfaction: Satisfaction;
 
-    staff_behavior?:number;
+    comment?: string;
 
+    gender?: Gender;
 
-
-    waiting_time?:number;
-
-
-
-    service_quality?:number;
-
-
-
-    cleanliness?:number;
-
-
-
-    satisfaction:
-        | "highly_satisfied"
-        | "satisfied"
-        | "not_satisfied";
-
-
-
-    comment?:string;
-
-
-
-    gender?:
-        | "male"
-        | "female";
-
-
-
-    age?:number;
-
-
+    age?: number;
 }
-
-
 
 /* ============================================================
  * Update Feedback
@@ -222,183 +130,106 @@ export interface FeedbackPayload {
 export interface UpdateFeedbackPayload
     extends Partial<FeedbackPayload> {}
 
-
-
 /* ============================================================
  * Filters
  * ============================================================ */
 
 export interface FeedbackFilters {
+    service_id?: number;
 
+    window_id?: number;
 
-    city_id?:number;
+    city_id?: number;
 
+    subcity_id?: number;
 
-    subcity_id?:number;
+    woreda_id?: number;
 
+    rating?: number;
 
-    woreda_id?:number;
+    satisfaction?: Satisfaction;
 
+    date?: string;
 
-    service_id?:number;
+    page?: number;
 
-
-    rating?:number;
-
-
-    satisfaction?:
-        | "highly_satisfied"
-        | "satisfied"
-        | "not_satisfied";
-
-
-    date?:string;
-
-
-    page?:number;
-
-
-    per_page?:number;
-
-
+    per_page?: number;
 }
-
-
 
 /* ============================================================
  * Pagination
  * ============================================================ */
 
 export interface PaginationLink {
-
-
-    url:string | null;
-
-
-    label:string;
-
-
-    active:boolean;
-
-
+    url: string | null;
+    label: string;
+    active: boolean;
 }
-
-
 
 export interface PaginationMeta {
+    current_page: number;
 
+    from: number | null;
 
-    current_page:number;
+    last_page: number;
 
+    per_page: number;
 
-    from:number | null;
+    total: number;
 
+    path: string;
 
-    last_page:number;
+    to: number | null;
 
-
-    per_page:number;
-
-
-    total:number;
-
-
-    path:string;
-
-
-    to:number | null;
-
-
-    links:PaginationLink[];
-
-
+    links: PaginationLink[];
 }
-
-
 
 export interface PaginationLinks {
+    first: string | null;
 
+    last: string | null;
 
-    first:string | null;
+    prev: string | null;
 
-
-    last:string | null;
-
-
-    prev:string | null;
-
-
-    next:string | null;
-
-
+    next: string | null;
 }
-
-
 
 /* ============================================================
  * API Response
  * ============================================================ */
 
 export interface FeedbackResponse {
+    success: boolean;
 
+    message: string;
 
-    success:boolean;
-
-
-    message:string;
-
-
-    data:Feedback;
-
-
+    data: Feedback;
 }
-
-
 
 export interface FeedbackListResponse {
+    data: Feedback[];
 
+    links: PaginationLinks;
 
-    data:Feedback[];
-
-
-    links:PaginationLinks;
-
-
-    meta:PaginationMeta;
-
-
+    meta: PaginationMeta;
 }
-
-
 
 /* ============================================================
  * Window Response
  * ============================================================ */
 
 export interface WindowResponse {
+    success: boolean;
 
-
-    success:boolean;
-
-
-    data:Window[];
-
-
+    data: Window[];
 }
-
-
 
 /* ============================================================
  * Service Response
  * ============================================================ */
 
 export interface ServiceResponse {
+    success: boolean;
 
-
-    success:boolean;
-
-
-    data:Service[];
-
-
+    data: Service[];
 }

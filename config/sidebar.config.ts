@@ -9,7 +9,8 @@ import {
   Users,
   Building2,
   Workflow,
-  Newspaper,
+  BarChart3,
+  Contact,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -65,11 +66,19 @@ const userManagementMenu: SidebarItem = {
   icon: Users,
   children: [
     { label: "Users", href: "/dashboard/users", permission: "users.read" },
-     { label: "Customers", href: "/dashboard/users/customers", permission: "users.read" },
     { label: "Create User", href: "/dashboard/users/add", permission: "users.create" },
     { label: "Activation Requests", href: "/dashboard/user-activation-requests", permission: "users.activate" },
     { label: "Roles", href: "/dashboard/roles", permission: "roles.read", scopes: cityOnly },
     { label: "Chatbot Training", href: "/dashboard/chatbot-training", permission: "roles.read", scopes: cityOnly },
+  ],
+};
+
+const customerManagementMenu: SidebarItem = {
+  label: "Customers",
+  icon: Contact,
+  children: [
+    { label: "Customers", href: "/dashboard/users/customers", permission: "users.read" },
+    { label: "Add Customer", href: "/dashboard/users/customers/add", permission: "users.create" },
   ],
 };
 
@@ -118,6 +127,23 @@ const applicationManagementMenu: SidebarItem = {
   ],
 };
 
+const reportMenu: SidebarItem = {
+  label: "Reports",
+  icon: BarChart3,
+  children: [
+    {
+      label: "Service & Feedback Report",
+      href: "/dashboard/reports",
+      permission: "applications.summary",
+    },
+    {
+      label: "Customer Feedback",
+      href: "/dashboard/feedback",
+      permission: "feedback.read",
+    },
+  ],
+};
+
 const officerApplicationMenu: SidebarItem = {
   label: "Officer Applications",
   icon: ClipboardCheck,
@@ -139,17 +165,11 @@ const customerApplicationMenu: SidebarItem = {
   ],
 };
 
-const newsMenu: SidebarItem = {
-  label: "News Management",
-  icon: Newspaper,
-  scopes: cityOnly,
+const feedbackMenu: SidebarItem = {
+  label: "Customer Feedback",
+  icon: BarChart3,
   children: [
-    {
-      label: "News",
-      href: "/dashboard/news",
-      permission: "roles.read",
-      scopes: cityOnly,
-    },
+    { label: "Feedback List", href: "/dashboard/feedback", permission: "feedback.read" },
   ],
 };
 
@@ -170,20 +190,28 @@ const systemMenu: SidebarItem = {
       permission: "audit_logs.read",
       scopes: cityOnly,
     },
+    {
+      label: "News",
+      href: "/dashboard/news",
+      permission: "audit_logs.read",
+      scopes: cityOnly,
+    },
 
   ],
 };
 
 const adminSections = (role: AppRoleKey): SidebarSection[] => [
   s("Main", [dashboardItem(role)]),
-  s("Management", [userManagementMenu, serviceManagementMenu, windowManagementMenu, newsMenu]),
+  s("Management", [userManagementMenu, customerManagementMenu, serviceManagementMenu, windowManagementMenu]),
   s("Applications", [formBuilderMenu, applicationManagementMenu]),
+  s("Reports", [reportMenu]),
   s("System", [systemMenu]),
 ];
 
 const managerSections = (role: AppRoleKey): SidebarSection[] => [
   s("Main", [dashboardItem(role)]),
   s("Applications", [applicationManagementMenu]),
+  s("Reports", [reportMenu]),
 ];
 
 const officerSections = (role: AppRoleKey): SidebarSection[] => [
@@ -196,13 +224,18 @@ const customerSections = (role: AppRoleKey): SidebarSection[] => [
   s("Applications", [customerApplicationMenu]),
 ];
 
+const feedbackSections = (role: AppRoleKey): SidebarSection[] => [
+  s("Main", [dashboardItem(role)]),
+  s("Feedback", [feedbackMenu]),
+];
+
 export const sidebarConfig: Record<AppRoleKey, RoleSidebar> = {
   "super-admin": { title: "Super Admin", icon: ShieldCheck, sections: adminSections("super-admin") },
   manager: { title: "Manager", icon: ShieldCheck, sections: managerSections("manager") },
   admin: { title: "Admin", icon: ShieldCheck, sections: adminSections("admin") },
   "front-officer": { title: "Front Officer", icon: UserCheck, sections: officerSections("front-officer") },
   "back-officer": { title: "Back Officer", icon: UserCheck, sections: officerSections("back-officer") },
-  agent: { title: "Agent", icon: UserCheck, sections: officerSections("agent") },
+  feedback: { title: "Feedback Officer", icon: BarChart3, sections: feedbackSections("feedback") },
   customer: { title: "Customer", icon: UserCheck, sections: customerSections("customer") },
 };
 
@@ -211,7 +244,7 @@ export function getSidebarForRole(role?: string | null): RoleSidebar {
 }
 
 function currentScopeKey(): string {
-  if (typeof window === "undefined") return "customer";
+  if (typeof window === "undefined") return "super_admin";
 
   try {
     const rawUser = localStorage.getItem("user") || localStorage.getItem("mesob_user");
@@ -228,7 +261,7 @@ function currentScopeKey(): string {
 
     return level ? `${normalized}:${level}` : normalized;
   } catch {
-    return "customer";
+    return "super_admin";
   }
 }
 

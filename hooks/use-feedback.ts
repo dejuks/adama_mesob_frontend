@@ -1,14 +1,12 @@
 "use client";
 
 import {
-    useQuery,
     useMutation,
+    useQuery,
     useQueryClient,
 } from "@tanstack/react-query";
 
 import feedbackService from "@/services/feedback.service";
-
-
 
 import type {
     FeedbackFilters,
@@ -21,6 +19,7 @@ import type {
  * ========================================================== */
 
 export const feedbackKeys = {
+
     all: ["feedback"] as const,
 
     windows: ["feedback", "windows"] as const,
@@ -35,6 +34,7 @@ export const feedbackKeys = {
 
     detail: (id: number) =>
         ["feedback", "detail", id] as const,
+
 };
 
 /* ==========================================================
@@ -42,45 +42,79 @@ export const feedbackKeys = {
  * ========================================================== */
 
 export function useWindows() {
+
     return useQuery({
+
         queryKey: feedbackKeys.windows,
-        queryFn: () => feedbackService.getWindows(),
+
+        queryFn: () =>
+            feedbackService.getWindows(),
+
     });
+
 }
 
 /* ==========================================================
  * SERVICES OF WINDOW
  * ========================================================== */
 
-export function useWindowServices(windowId?: number) {
+export function useWindowServices(
+    windowId?: number
+) {
+
     return useQuery({
+
         queryKey: feedbackKeys.services(windowId),
-        queryFn: () => feedbackService.getServicesByWindow(windowId!),
+
+        queryFn: () =>
+            feedbackService.getServicesByWindow(
+                windowId!
+            ),
+
         enabled: !!windowId,
+
     });
+
 }
 
 /* ==========================================================
  * GET ALL FEEDBACK
  * ========================================================== */
 
-export function useFeedback(filters?: FeedbackFilters) {
+export function useFeedback(
+    filters?: FeedbackFilters
+) {
+
     return useQuery({
+
         queryKey: feedbackKeys.list(filters),
-        queryFn: () => feedbackService.getAll(filters),
+
+        queryFn: () =>
+            feedbackService.getAll(filters),
+
     });
+
 }
 
 /* ==========================================================
  * GET SINGLE FEEDBACK
  * ========================================================== */
 
-export function useFeedbackDetails(id: number) {
+export function useFeedbackDetails(
+    id: number
+) {
+
     return useQuery({
+
         queryKey: feedbackKeys.detail(id),
-        queryFn: () => feedbackService.getById(id),
+
+        queryFn: () =>
+            feedbackService.getById(id),
+
         enabled: !!id,
+
     });
+
 }
 
 /* ==========================================================
@@ -88,18 +122,28 @@ export function useFeedbackDetails(id: number) {
  * ========================================================== */
 
 export function useCreateFeedback() {
+
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (payload: FeedbackPayload) =>
+
+        mutationFn: (
+            payload: FeedbackPayload
+        ) =>
             feedbackService.create(payload),
 
         onSuccess: () => {
+
             queryClient.invalidateQueries({
+
                 queryKey: feedbackKeys.lists,
+
             });
+
         },
+
     });
+
 }
 
 /* ==========================================================
@@ -107,27 +151,43 @@ export function useCreateFeedback() {
  * ========================================================== */
 
 export function useUpdateFeedback() {
+
     const queryClient = useQueryClient();
 
     return useMutation({
+
         mutationFn: ({
                          id,
                          payload,
                      }: {
             id: number;
             payload: UpdateFeedbackPayload;
-        }) => feedbackService.update(id, payload),
+        }) =>
+            feedbackService.update(
+                id,
+                payload
+            ),
 
         onSuccess: (_, variables) => {
+
             queryClient.invalidateQueries({
+
                 queryKey: feedbackKeys.lists,
+
             });
 
             queryClient.invalidateQueries({
-                queryKey: feedbackKeys.detail(variables.id),
+
+                queryKey: feedbackKeys.detail(
+                    variables.id
+                ),
+
             });
+
         },
+
     });
+
 }
 
 /* ==========================================================
@@ -135,18 +195,26 @@ export function useUpdateFeedback() {
  * ========================================================== */
 
 export function useDeleteFeedback() {
+
     const queryClient = useQueryClient();
 
     return useMutation({
+
         mutationFn: (id: number) =>
             feedbackService.delete(id),
 
         onSuccess: () => {
+
             queryClient.invalidateQueries({
+
                 queryKey: feedbackKeys.lists,
+
             });
+
         },
+
     });
+
 }
 
 /* ==========================================================
@@ -156,11 +224,16 @@ export function useDeleteFeedback() {
 export function useFilteredFeedback(
     filters: FeedbackFilters
 ) {
+
     return useQuery({
+
         queryKey: ["feedback-filter", filters],
+
         queryFn: () =>
             feedbackService.filter(filters),
+
     });
+
 }
 
 /* ==========================================================
@@ -171,16 +244,21 @@ export function useFeedbackPagination(
     page = 1,
     perPage = 20
 ) {
+
     return useQuery({
+
         queryKey: [
             "feedback-page",
             page,
             perPage,
         ],
+
         queryFn: () =>
-            feedbackService.getAll({
+            feedbackService.paginate(
                 page,
-                per_page: perPage,
-            }),
+                perPage
+            ),
+
     });
+
 }

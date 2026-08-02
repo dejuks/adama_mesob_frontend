@@ -92,28 +92,14 @@ export default function AddUserPage() {
     const base = roles || [];
 
     if (authRole === "super_admin") return base;
-
     if (authRole !== "admin") return [];
 
     if (authLevel === "city") {
-      return base.filter((role: any) =>
-          [
-            "admin",
-            "front_officer",
-            "back_officer",
-            "agent",          // <-- add this
-          ].includes(role.name)
-      );
+      return base.filter((role: any) => ["admin", "front_officer", "back_officer", "feedback"].includes(role.name));
     }
 
     if (authLevel === "subcity" || authLevel === "woreda") {
-      return base.filter((role: any) =>
-          [
-            "front_officer",
-            "back_officer",
-            "agent",          // <-- add this
-          ].includes(role.name)
-      );
+      return base.filter((role: any) => ["front_officer", "back_officer", "feedback"].includes(role.name));
     }
 
     return [];

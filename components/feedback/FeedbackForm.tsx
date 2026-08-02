@@ -3,167 +3,70 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import feedbackService from "@/services/feedback.service";
-import type { Gender } from "@/types/feedback";
-
-
-
-
-type FeedbackFormState = {
-
-    service_id: string;
-
-    overall_rating: number;
-
-    staff_behavior: number;
-
-    waiting_time: number;
-
-    service_quality: number;
-
-    cleanliness: number;
-
-    satisfaction:
-        | "highly_satisfied"
-        | "satisfied"
-        | "not_satisfied";
-
-    comment: string;
-
-    gender: Gender;
-
-    age: string;
-
-};
-
-
+import { useCreateFeedback } from "@/hooks/use-feedback";
+import type { FeedbackPayload } from "@/types/feedback";
 
 export default function FeedbackForm() {
 
-
     const router = useRouter();
 
+    const createFeedback = useCreateFeedback();
 
-    const [loading,setLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
 
+    const [form, setForm] = useState({
 
+        service_id: "",
 
-    const [form,setForm] = useState<FeedbackFormState>({
+        overall_rating: 5,
 
-        service_id:"",
+        staff_behavior: 5,
 
-        overall_rating:5,
+        waiting_time: 5,
 
-        staff_behavior:5,
+        service_quality: 5,
 
-        waiting_time:5,
+        cleanliness: 5,
 
-        service_quality:5,
+        satisfaction: "highly_satisfied",
 
-        cleanliness:5,
+        comment: "",
 
-        satisfaction:"highly_satisfied",
+        gender: "",
 
-        comment:"",
-
-        gender:"",
-
-        age:""
+        age: ""
 
     });
 
-
-
-
-
-    function updateField<K extends keyof FeedbackFormState>(
-
-        field: K,
-
-        value: FeedbackFormState[K]
-
-    ){
-
-        setForm(prev => ({
-
-            ...prev,
-
-            [field]: value
-
-        }));
-
-    }
-
-
-
-
-
-    async function handleSubmit(
-        e: React.FormEvent<HTMLFormElement>
-    ){
+    async function handleSubmit(e: any) {
 
         e.preventDefault();
 
-
         setLoading(true);
-
 
         try {
 
+            await createFeedback.mutateAsync({
 
-            await feedbackService.create({
+                ...form,
 
-                service_id:Number(form.service_id),
+                service_id: Number(form.service_id),
 
-                overall_rating:form.overall_rating,
+                age: Number(form.age)
 
-                staff_behavior:form.staff_behavior,
+            } as FeedbackPayload);
 
-                waiting_time:form.waiting_time,
+            router.push("/feedback/success");
 
-                service_quality:form.service_quality,
+        }
 
-                cleanliness:form.cleanliness,
-
-                satisfaction:form.satisfaction,
-
-                comment:form.comment,
-
-                gender:form.gender || undefined,
-
-                age:Number(form.age)
-
-            });
-
-
-
-            router.push(
-                "/feedback/success"
-            );
-
-
-        } catch(error){
-
-
-            console.error(
-                "Feedback submit error:",
-                error
-            );
-
-
-        } finally {
-
+        finally {
 
             setLoading(false);
-
 
         }
 
     }
-
-
-
-
 
     return (
 
@@ -172,41 +75,31 @@ export default function FeedbackForm() {
             className="space-y-6"
         >
 
-
             <select
 
                 value={form.service_id}
 
-                onChange={(e)=>
-                    updateField(
-                        "service_id",
-                        e.target.value
-                    )
+                onChange={(e) =>
+
+                    setForm({
+
+                        ...form,
+
+                        service_id: e.target.value
+
+                    })
+
                 }
-
-                className="border p-2 w-full"
-
-                required
 
             >
 
-                <option value="">
+                <option>
+
                     Select Service
-                </option>
 
-                <option value="1">
-                    Service One
-                </option>
-
-                <option value="2">
-                    Service Two
                 </option>
 
             </select>
-
-
-
-
 
             <input
 
@@ -218,157 +111,89 @@ export default function FeedbackForm() {
 
                 value={form.overall_rating}
 
-                onChange={(e)=>
-                    updateField(
-                        "overall_rating",
-                        Number(e.target.value)
-                    )
+                onChange={(e) =>
+
+                    setForm({
+
+                        ...form,
+
+                        overall_rating: Number(e.target.value)
+
+                    })
+
                 }
 
-                className="border p-2 w-full"
-
             />
-
-
-
-
 
             <select
 
                 value={form.satisfaction}
 
-                onChange={(e)=>
-                    updateField(
-                        "satisfaction",
-                        e.target.value as FeedbackFormState["satisfaction"]
-                    )
-                }
+                onChange={(e) =>
 
-                className="border p-2 w-full"
+                    setForm({
+
+                        ...form,
+
+                        satisfaction: e.target.value
+
+                    })
+
+                }
 
             >
 
                 <option value="highly_satisfied">
-                    Highly Satisfied
-                </option>
 
+                    Highly Satisfied
+
+                </option>
 
                 <option value="satisfied">
-                    Satisfied
-                </option>
 
+                    Satisfied
+
+                </option>
 
                 <option value="not_satisfied">
+
                     Not Satisfied
-                </option>
 
+                </option>
 
             </select>
-
-
-
-
-
-            <select
-
-                value={form.gender}
-
-                onChange={(e)=>
-                    updateField(
-                        "gender",
-                        e.target.value as Gender
-                    )
-                }
-
-                className="border p-2 w-full"
-
-            >
-
-                <option value="">
-                    Select Gender
-                </option>
-
-
-                <option value="male">
-                    Male
-                </option>
-
-
-                <option value="female">
-                    Female
-                </option>
-
-
-            </select>
-
-
-
-
-
-            <input
-
-                type="number"
-
-                placeholder="Age"
-
-                value={form.age}
-
-                onChange={(e)=>
-                    updateField(
-                        "age",
-                        e.target.value
-                    )
-                }
-
-                className="border p-2 w-full"
-
-            />
-
-
-
-
 
             <textarea
 
-                placeholder="Comment"
-
                 value={form.comment}
 
-                onChange={(e)=>
-                    updateField(
-                        "comment",
-                        e.target.value
-                    )
-                }
+                onChange={(e) =>
 
-                className="border p-2 w-full"
+                    setForm({
+
+                        ...form,
+
+                        comment: e.target.value
+
+                    })
+
+                }
 
             />
 
+            <button disabled={loading || createFeedback.isPending}>
 
+                {loading || createFeedback.isPending ?
 
+                    "Submitting..."
 
+                    :
 
-            <button
+                    "Submit Feedback"
 
-                type="submit"
-
-                disabled={loading}
-
-                className="bg-blue-600 text-white px-5 py-2 rounded"
-
-            >
-
-                {
-                    loading
-                        ?
-                        "Submitting..."
-                        :
-                        "Submit Feedback"
                 }
 
             </button>
-
 
         </form>
 

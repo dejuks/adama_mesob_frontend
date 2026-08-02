@@ -6,7 +6,7 @@ export type AppRoleName =
   | "admin"
   | "back_officer"
   | "front_officer"
-  | "agent"
+  | "feedback"
   | "customer";
 
 export type RoleOption = {
@@ -27,30 +27,17 @@ export const ROLE_OPTIONS: RoleOption[] = [
   { name: "admin", label: "Admin", isScoped: true },
   { name: "back_officer", label: "Back Officer", isScoped: true },
   { name: "front_officer", label: "Front Officer", isScoped: true },
-  { name: "agent", label: "Agent", isScoped: true },
+  { name: "feedback", label: "Feedback Officer", isScoped: true },
   { name: "customer", label: "Customer", isScoped: false },
 ];
 
-/**
- * Normalizes a raw role string (from the backend, storage, or a <select>)
- * into one of our known AppRoleName values — or "" if it's blank / unrecognized.
- *
- * IMPORTANT: unrecognized role strings must NOT silently resolve to
- * "super_admin". Doing so would fail *open* — a role name we don't
- * recognize would be treated as the most privileged, unscoped role in
- * the UI (skipping location requirements, unlocking every menu, etc).
- * Instead we fail *closed*: unknown input returns "" and callers decide
- * a safe, low-privilege default from there.
- */
-export function normalizeRoleName(role?: string | null): AppRoleName | "" {
+export function normalizeRoleName(role?: string | null): AppRoleName {
   const value = String(role ?? "")
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/[-\s]+/g, "_")
     .replace(/_+/g, "_")
     .trim();
-
-  if (!value) return "";
 
   if (value === "super" || value === "superadmin" || value === "super_admin") return "super_admin";
   if (value === "manager" || value === "managemer") return "manager";
@@ -86,33 +73,22 @@ export function normalizeRoleName(role?: string | null): AppRoleName | "" {
     value === "woreda_front_officer"
   ) return "front_officer";
 
-  if (value === "agent") return "agent";
-
   if (value === "customer") return "customer";
 
-  // Unrecognized role name — return "" rather than guessing.
-  return "";
+  if (
+    value === "feedback" ||
+    value === "feedback_officer" ||
+    value === "feedbackofficer" ||
+    value === "city_feedback" ||
+    value === "subcity_feedback" ||
+    value === "woreda_feedback"
+  ) return "feedback";
+
+  return "super_admin";
 }
 
-/**
- * Looks up the RoleOption for a role name. If the role is blank or not
- * recognized, returns a safe, scoped-by-default placeholder rather than
- * silently granting Super Admin's unscoped behavior.
- */
 export function getRoleOption(role?: string | null): RoleOption {
-  const normalized = normalizeRoleName(role);
-
-  const match = ROLE_OPTIONS.find((item) => item.name === normalized);
-  if (match) return match;
-
-  // No match: if nothing was supplied yet (role not chosen), stay neutral.
-  // If something WAS supplied but we don't recognize it, default to
-  // "scoped" so location fields are still required rather than skipped.
-  return {
-    name: (normalized || "customer") as AppRoleName,
-    label: role ? String(role) : "",
-    isScoped: Boolean(normalized),
-  };
+  return ROLE_OPTIONS.find((item) => item.name === normalizeRoleName(role)) ?? ROLE_OPTIONS[0];
 }
 
 

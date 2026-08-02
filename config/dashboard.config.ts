@@ -2,9 +2,9 @@ import {
   ClipboardCheck,
   FileCheck2,
   LayoutDashboard,
+  MessageSquareText,
   ShieldCheck,
   UserCheck,
-  UserCog,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -16,7 +16,7 @@ export type AppRoleKey =
   | "admin"
   | "front-officer"
   | "back-officer"
-  | "agent"
+  | "feedback"
   | "customer";
 
 export type DashboardDefinition = {
@@ -34,7 +34,7 @@ export const roleHome: Record<AppRoleKey, string> = {
   admin: "/dashboard",
   "front-officer": "/dashboard",
   "back-officer": "/dashboard",
-  agent: "/dashboard",
+  feedback: "/dashboard/feedback",
   customer: "/dashboard",
 };
 
@@ -79,14 +79,6 @@ export const dashboardConfig: Record<AppRoleKey, DashboardDefinition> = {
     route: roleHome["back-officer"],
     icon: FileCheck2,
   },
-  agent: {
-    key: "agent",
-    roleName: "Agent",
-    title: "Agent Dashboard",
-    subtitle: "Location-scoped tasks assigned to you.",
-    route: roleHome.agent,
-    icon: UserCog,
-  },
   customer: {
     key: "customer",
     roleName: "Customer",
@@ -95,18 +87,18 @@ export const dashboardConfig: Record<AppRoleKey, DashboardDefinition> = {
     route: roleHome.customer,
     icon: UserCheck,
   },
+  feedback: {
+    key: "feedback",
+    roleName: "Feedback Officer",
+    title: "Feedback Dashboard",
+    subtitle: "Review and manage customer feedback for your city, subcity, or woreda.",
+    route: roleHome.feedback,
+    icon: MessageSquareText,
+  },
 };
 
 export const dashboardList = Object.values(dashboardConfig);
 
-/**
- * Maps a raw role string to a dashboard key.
- *
- * IMPORTANT: an unrecognized role must NOT fall back to "super-admin" —
- * that would hand any user with an unmapped role string the Super Admin
- * dashboard and its system-wide controls. We fail closed to "customer"
- * (the least-privileged dashboard) instead.
- */
 export function normalizeRole(role?: string | null): AppRoleKey {
   const normalized = normalizeRoleName(role);
 
@@ -116,11 +108,11 @@ export function normalizeRole(role?: string | null): AppRoleKey {
     admin: "admin",
     front_officer: "front-officer",
     back_officer: "back-officer",
-    agent: "agent",
+    feedback: "feedback",
     customer: "customer",
   };
 
-  return map[normalized] ?? "customer";
+  return map[normalized] ?? "super-admin";
 }
 
 export function getDashboardForRole(role?: string | null) {
