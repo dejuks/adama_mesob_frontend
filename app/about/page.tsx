@@ -166,7 +166,12 @@ async function getAboutData(): Promise<AboutData> {
 }
 
 export default async function AboutPage() {
-  const { cities, subcities, woredas, services } = await getAboutData();
+  const cityName = "Adama";
+  const { cities,
+    subcities,
+    woredas,
+    services }
+      = await getAboutData();
 
   const displayedSubcities =
     subcities.length > 0
