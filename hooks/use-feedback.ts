@@ -24,6 +24,8 @@ export const feedbackKeys = {
 
     windows: ["feedback", "windows"] as const,
 
+    scopedWindows: ["feedback", "scoped-windows"] as const,
+
     services: (windowId?: number) =>
         ["feedback", "services", windowId] as const,
 
@@ -49,6 +51,24 @@ export function useWindows() {
 
         queryFn: () =>
             feedbackService.getWindows(),
+
+    });
+
+}
+
+/* ==========================================================
+ * WINDOWS — scoped to the logged-in officer's own
+ * city / subcity / woreda (with their active services attached)
+ * ========================================================== */
+
+export function useScopedWindows() {
+
+    return useQuery({
+
+        queryKey: feedbackKeys.scopedWindows,
+
+        queryFn: () =>
+            feedbackService.getScopedWindows(),
 
     });
 
